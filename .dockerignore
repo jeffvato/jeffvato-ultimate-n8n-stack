@@ -1,0 +1,7 @@
+.git
+.env
+.env.*
+backups
+*.dump
+*.log
+workflows/*credentials*.json

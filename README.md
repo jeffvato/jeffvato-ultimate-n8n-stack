@@ -1,439 +1,224 @@
 # Jeffvato Ultimate n8n Stack
 
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
-[![n8n](https://img.shields.io/badge/n8n-v1.123.5-EA4B71?logo=n8n&logoColor=white)](https://n8n.io/)
-[![MCP](https://img.shields.io/badge/MCP-Enabled-7C3AED?logo=anthropic&logoColor=white)](https://modelcontextprotocol.io/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/jeffvato/jeffvato-ultimate-n8n-stack?style=social)](https://github.com/jeffvato/jeffvato-ultimate-n8n-stack/stargazers)
+Local Docker Compose automation, AI and database services for Linux/WSL2.
+Reviewed against upstream releases on **2026-11-12**. This repository is a
+configuration template, not a claim of production readiness or a completed upgrade
+of your running machine.
 
-A production-ready n8n automation platform with integrated AI services, vector databases, and Model Context Protocol (MCP) servers for Claude Code integration.
+## Revision baseline
 
-## 🌟 Features
+| Service | Image/revision | Upgrade policy |
+| --- | --- | --- |
+| n8n custom ImageMagick build | 2.47.5 stable | Exact version; not 2.48 beta |
+| PostgreSQL | 16-alpine | Latest available 16.x patch; preserve existing major/data layout |
+| Redis Stack | 7.4.0-v8 | Preserve Stack/module compatibility; no silent Redis 8 migration |
+| pgAdmin | 9.19 | Exact release |
+| Qdrant | v1.20.0 | Exact release; read intermediate-version migration guidance |
+| Ollama (CPU) | 0.40.16 | Exact release; models downloaded separately |
+| Open WebUI | v0.13.3 | Exact release; backup data before migrations |
+| n8n MCP | 2.102.0 | Optional stdio client process |
+| Playwright MCP | 0.0.85 | Microsoft's image; optional stdio client process |
+| PostgreSQL MCP | 0.3.0 | Restricted mode, optional stdio client process |
+| SearXNG / utility ImageMagick | 2026-11-12 image digests | Rolling upstream tags frozen to verified registry digests |
 
-### Core Services
-- **n8n** (v1.123.5) - Workflow automation platform with custom ImageMagick support
-- **PostgreSQL 16** - Primary database with pgAdmin for management
-- **RedisStack** - In-memory data store with RediSearch, RedisJSON, RedisGraph, and RedisTimeSeries modules
-- **Ollama** - Local LLM inference engine
-- **Open WebUI** - Modern chat interface for Ollama with RAG capabilities
-- **Qdrant** - Vector database for semantic search and embeddings
-- **SearXNG** - Privacy-respecting metasearch engine
+Sources: [n8n releases](https://github.com/n8n-io/n8n/releases),
+[Redis Stack releases](https://github.com/redis-stack/redis-stack/releases),
+[pgAdmin 9.19](https://www.pgadmin.org/docs/pgadmin4/latest/release_notes_9_19.html),
+[Qdrant releases](https://github.com/qdrant/qdrant/releases),
+[Ollama releases](https://github.com/ollama/ollama/releases),
+[Open WebUI releases](https://github.com/open-webui/open-webui/releases),
+[n8n MCP releases](https://github.com/czlonkowski/n8n-mcp/releases),
+[Playwright MCP releases](https://github.com/microsoft/playwright-mcp/releases),
+[PostgreSQL MCP releases](https://github.com/crystaldba/postgres-mcp/releases).
 
-### MCP Servers (Claude Code Integration)
-- **n8n-docs-mcp** - Comprehensive n8n documentation and workflow management (20+ tools)
-- **playwright-mcp** - Browser automation with headless Chromium
-- **postgres-mcp** - Secure PostgreSQL database access with read-only mode
+Tags are not content-addressed guarantees. Record deployed image digests before
+updates. Do not assume every upstream release is mutually compatible without
+testing your workflows. Redis Stack is retained for compatibility, not claimed
+to be the latest Redis product; RedisGraph is not included.
 
-### Additional Utilities
-- **ImageMagick** - Advanced image processing in a dedicated container
-- **pgAdmin** - Web-based PostgreSQL administration
+## Important changes for existing installations
 
-## 🏗️ Architecture
+- The old README advertised n8n 1.123.5 while its Dockerfile used 2.0.3.
+  This baseline aligns both to 2.47.5. Review the
+  [n8n 2.x breaking changes](https://docs.n8n.io/2-0-breaking-changes/)
+  and [release notes](https://docs.n8n.io/release-notes/) before upgrading.
+- n8n account-based login replaces the removed N8N_BASIC_AUTH_* configuration.
+  Existing account data remains in the database; create an owner account only
+  on a genuinely new installation.
+- Execute Command and Local File Trigger remain disabled by default. If audited
+  workflows need ImageMagick via Execute Command, set
+  `NODES_EXCLUDE='["n8n-nodes-base.localFileTrigger"]'` in .env.
+  This grants shell execution to workflows; only trusted editors should have access.
+- File nodes are restricted to /web_images. Add other directories only deliberately.
+  Environment access is blocked by default; audit Code nodes/expressions before
+  retaining the older `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` setting.
+- Internal JavaScript task runners are enabled for this local stack. This is not
+  the production-recommended isolated external-runner deployment. Python Code
+  workflows require a separately configured matching external runner and tests;
+  no insecure runner mode is enabled here.
+- Ports bind to 127.0.0.1 by default. Remote LAN/Tailscale/reverse-proxy access
+  will need deliberate bind, firewall, TLS and URL configuration. Do not set
+  BIND_ADDRESS=0.0.0.0 casually: it exposes unauthenticated backing services too.
+- MCP servers are on-demand tools, not always-running daemons. Old docker-exec
+  instructions launched a second stdio process and depended on internal paths.
+- A bearer token was previously committed in the setup script. **Revoke/rotate
+  it if used.** Removal does not remove public Git history. No automatic
+  credential import or database modification is performed by the script now.
+- Legacy webhook workflows are demonstrations with placeholder tools, not
+  complete MCP servers. See [MCP guide](workflows/MCP_SETUP_GUIDE.md).
+- The previous MIT badge pointed at a nonexistent LICENSE. No repository license
+  is asserted here; upstream software retains its own licenses. Choose a license
+  explicitly before distributing your own repository content under one.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                       Docker Network                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────┐   ┌──────────┐   ┌────────────┐   ┌──────────┐  │
-│  │   n8n    │   │PostgreSQL│   │ RedisStack │   │  Qdrant  │  │
-│  │  :5678   │──▶│  :5432   │   │   :6379    │   │  :6333   │  │
-│  └──────────┘   └──────────┘   └────────────┘   └──────────┘  │
-│       │              │                                          │
-│       ▼              ▼                                          │
-│  ┌──────────┐   ┌──────────┐   ┌────────────┐   ┌──────────┐  │
-│  │  Ollama  │   │  Open    │   │  SearXNG   │   │ pgAdmin  │  │
-│  │  :11434  │──▶│  WebUI   │──▶│   :8080    │   │  :5050   │  │
-│  └──────────┘   │  :3000   │   └────────────┘   └──────────┘  │
-│                 └──────────┘                                   │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │              MCP Servers (Claude Code)                   │  │
-│  ├──────────────────────────────────────────────────────────┤  │
-│  │  n8n-docs-mcp  │  playwright-mcp  │  postgres-mcp       │  │
-│  │  (stdio)       │  (stdio)         │  (stdio)            │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                 │
-│  ┌──────────┐                                                  │
-│  │ImageMagick│ (utility container)                             │
-│  └──────────┘                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
+## Fresh setup
 
-## 📋 Prerequisites
-
-- **Docker** 20.10+ and **Docker Compose** 2.0+
-- **Git** for cloning the repository
-- **Minimum 8GB RAM** (16GB recommended)
-- **20GB free disk space**
-- **Linux, macOS, or WSL2 on Windows**
-
-### Optional
-- **Claude Code CLI** - For MCP server integration ([Installation Guide](https://code.claude.com/docs/en/installation))
-
-## 🚀 Quick Start
-
-### 1. Clone the Repository
+Use a maintained Docker Engine/Desktop and Compose v2 with BuildKit. The whole
+AI stack can require substantial RAM and disk; 16 GB RAM is a starting point,
+not a guarantee. Ollama model sizes and import workload determine actual needs.
 
 ```bash
-git clone https://github.com/your-username/jeffvato-ultimate-n8n-stack.git
+git clone https://github.com/jeffvato/jeffvato-ultimate-n8n-stack.git
 cd jeffvato-ultimate-n8n-stack
-```
-
-### 2. Configure Environment
-
-Copy the example environment file and configure your credentials:
-
-```bash
 cp .env.example .env
+chmod 600 .env
 ```
 
-Edit `.env` and set your credentials:
+Edit .env: set unique PostgreSQL/pgAdmin passwords, a valid pgAdmin email and a
+random SEARXNG_SECRET (`openssl rand -hex 32`). WEB_IMAGES_HOST_DIR defaults to
+/mnt/e/web_images (E:\\web_images under WSL); create your chosen directory first.
+Do not copy example passwords to a real system.
 
-```env
-# Required: PostgreSQL
-POSTGRES_USER=your_postgres_username
-POSTGRES_PASSWORD=your_postgres_password
-POSTGRES_DB=your_database_name
-
-# Required: n8n
-N8N_BASIC_AUTH_USER=your_n8n_username
-N8N_BASIC_AUTH_PASSWORD=your_n8n_password
-
-# Required: pgAdmin
-PGADMIN_DEFAULT_EMAIL=your_email@example.com
-PGADMIN_DEFAULT_PASSWORD=your_pgadmin_password
-
-# Optional: SearXNG
-SEARXNG_SECRET=your_random_secret_key
-```
-
-### 3. Update File Paths (Optional)
-
-If you want to use a shared volume for images/files:
-
-1. Open `docker-compose.yml`
-2. Find all instances of `/mnt/e/web_images`
-3. Replace with your preferred host directory path
-
-### 4. Build Custom n8n Image
+N8N_SECURE_COOKIE=false is for local HTTP only. Remote deployment needs HTTPS,
+secure cookies, correct WEBHOOK_URL/N8N_EDITOR_BASE_URL and proxy configuration.
+No reverse proxy/TLS or safe public-access deployment is supplied here.
 
 ```bash
-docker compose build n8n
-```
-
-### 5. Start Services
-
-```bash
+docker compose --env-file .env config --quiet
+docker compose build --pull n8n
+docker compose pull --ignore-buildable
 docker compose up -d
-```
-
-### 6. Verify Deployment
-
-```bash
-# Check all services are healthy
 docker compose ps
-
-# View logs
-docker compose logs -f n8n
+docker compose logs --tail=100 n8n
 ```
 
-## 🔧 Service Configuration
-
-### Access URLs
-
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| n8n | http://localhost:5678 | From `.env` (N8N_BASIC_AUTH_*) |
-| Open WebUI | http://localhost:3000 | Create on first visit |
-| pgAdmin | http://localhost:5050 | From `.env` (PGADMIN_DEFAULT_*) |
-| SearXNG | http://localhost:8080 | No auth required |
-| PostgreSQL | localhost:5432 | From `.env` (POSTGRES_*) |
-| RedisStack | localhost:6379 | No auth required |
-| Qdrant | http://localhost:6333 | No auth required |
-| Ollama API | http://localhost:11434 | No auth required |
-
-### n8n Configuration
-
-1. **First Login**: Navigate to http://localhost:5678
-2. **API Key** (for MCP servers):
-   - Go to Settings → API
-   - Click "Create API Key"
-   - Copy the key
-   - Add to `.env`: `N8N_API_KEY=your_api_key_here`
-   - Restart services: `docker compose restart`
-
-### Ollama Models
-
-Pull your desired models:
+Build smoke test (does not start your stack):
 
 ```bash
-# Example: Pull Llama 3.2
-docker exec ollama ollama pull llama3.2
-
-# List installed models
-docker exec ollama ollama list
+docker compose run --rm --no-deps --entrypoint /bin/sh n8n -ec \
+  'n8n --version; magick -size 1x1 xc:white /tmp/check.webp; magick identify /tmp/check.webp'
 ```
 
-## 🤖 MCP Server Setup (Claude Code Integration)
+The Dockerfile temporarily restores the matching Alpine package manager to
+install ImageMagick/WebP support, then removes it. Its Alpine-version guard must
+be reviewed when the n8n base changes.
 
-The stack includes three MCP servers for Claude Code integration:
+## Upgrading an existing stack safely
 
-### Prerequisites
+1. Work in the **existing checkout and Compose project**. Before pulling changes,
+   record `docker compose ls`, `docker compose config --volumes`,
+   `docker compose images`, your current Git SHA and existing .env. Changing
+   directories/project names can silently select new empty volumes. Keep the
+   same `-p` / COMPOSE_PROJECT_NAME selection if one is already used.
+2. Inspect the live n8n version and image IDs. Preserve/tag the old custom image.
+   Preserve the exact old Compose/.env and images for all services being updated.
+3. Back up before any application/database migration. Stop workflow execution
+   and n8n for a consistent checkpoint. Back up PostgreSQL, **n8n-data including
+   its encryption key**, and each other stateful service using its supported
+   snapshot/backup method. PostgreSQL alone is not a full-stack backup.
+4. Test restoring the backup into an isolated project. Never run the original
+   and restored production schedules/webhooks against the same external systems.
+5. Merge configuration manually; do **not** overwrite your existing .env with the
+   example. Keep database names/passwords, encryption key, volume keys and image
+   paths. Set N8N_VERSION and N8N_IMAGE_NAME together, or old .env values can
+   override the new build/tag. Do not set a new encryption key on existing data.
+6. Review all intermediate migrations, especially n8n, Qdrant and Open WebUI.
+   Build/pull first and test representative workflows, credentials, webhooks,
+   files, Code nodes and ImageMagick against restored data. Stage upgrades
+   individually rather than assuming all services can be upgraded at once.
+7. Only after acceptance, recreate the chosen services during a maintenance
+   window. `docker compose restart` does not apply changed environment/images.
+   No service restart is performed by this repository update.
 
-1. Install Claude Code: https://code.claude.com/docs/en/installation
-2. Generate n8n API key (see n8n Configuration above)
-
-### Automatic Configuration
-
-The MCP servers are pre-configured in `docker-compose.yml` and will start automatically with the stack. They use **stdio transport** via Docker exec.
-
-### Claude Code Configuration
-
-Add to your `~/.claude.json` (create if it doesn't exist):
-
-```json
-{
-  "projects": {
-    "/path/to/your/project": {
-      "mcpServers": {
-        "n8n-docs": {
-          "type": "stdio",
-          "command": "docker",
-          "args": ["exec", "-i", "n8n-docs-mcp", "node", "dist/mcp/index.js"],
-          "env": {}
-        },
-        "playwright": {
-          "type": "stdio",
-          "command": "docker",
-          "args": ["exec", "-i", "playwright-mcp", "node", "/mcp/build/index.js"],
-          "env": {}
-        },
-        "postgres": {
-          "type": "stdio",
-          "command": "docker",
-          "args": ["exec", "-i", "postgres-mcp", "postgres-mcp", "--access-mode=restricted"],
-          "env": {}
-        }
-      }
-    }
-  }
-}
-```
-
-### Verify MCP Servers
-
-In Claude Code:
-
-```
-/mcp
-```
-
-You should see all three MCP servers connected.
-
-### MCP Server Capabilities
-
-#### n8n-docs-mcp
-- Search n8n nodes and documentation
-- Create, update, delete workflows
-- Validate workflow configurations
-- Deploy templates from n8n.io
-- Manage workflow executions
-- Auto-fix common issues
-
-#### playwright-mcp
-- Navigate to URLs
-- Take screenshots
-- Fill forms and click buttons
-- Execute JavaScript in browser
-- Extract page content
-
-#### postgres-mcp
-- Execute SQL queries (read-only mode)
-- Inspect database schemas
-- View table structures
-- Performance analysis
-- Database metadata
-
-## 🎯 Common Operations
-
-### Manage Services
+Example PostgreSQL backup after n8n is stopped (run from the existing project;
+output contains sensitive business data and must be protected):
 
 ```bash
-# Start all services
-docker compose up -d
-
-# Stop all services
-docker compose down
-
-# View logs
-docker compose logs -f [service_name]
-
-# Restart a service
-docker compose restart [service_name]
-
-# Rebuild a service
-docker compose build [service_name]
-docker compose up -d [service_name]
+mkdir -p backups
+chmod 700 backups
+docker compose stop n8n
+docker compose exec -T postgres sh -ec \
+  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > backups/postgres.dump
+docker compose exec -T postgres sh -ec \
+  'pg_restore --list' < backups/postgres.dump > /dev/null
 ```
 
-### Update Services
+This dump check is not a restore test. Also protect PostgreSQL roles/global
+objects and other databases where applicable. Copy n8n's persistent volume
+using your backup tool while n8n is stopped; preserve its ownership/permissions.
+Do not print .env or decrypted credentials in logs.
+
+**Rollback:** stop the new writers, restore the pre-upgrade database and service
+volumes into the original project, and use the recorded old configuration and
+images. Merely downgrading a container against migrated data is not safe.
+Never use `docker compose down -v` or volume pruning as an upgrade step.
+PostgreSQL stays on 16; a major upgrade requires its own dump/restore or pg_upgrade
+plan and cannot reuse the old data directory blindly.
+
+## Services and access
+
+| Service | Local endpoint | Login / notes |
+| --- | --- | --- |
+| n8n | http://localhost:5678 | Existing account or first-run owner setup |
+| pgAdmin | http://localhost:5050 | PGADMIN_DEFAULT_* initializes a new data volume only |
+| Open WebUI | http://localhost:3000 | Account setup; existing admin settings can override env defaults |
+| SearXNG | http://localhost:8080 | Local only; JSON format enabled for WebUI |
+| PostgreSQL | localhost:5432 | Existing POSTGRES_* identity |
+| Redis Stack | localhost:6379 | No auth configured; local-only exposure |
+| Qdrant | http://localhost:6333 | No API key configured; local-only exposure |
+| Ollama | http://localhost:11434 | CPU inference; no API authentication configured |
+
+Services communicate by Docker service name, not localhost: postgres:5432,
+ollama:11434, qdrant:6333, searxng:8080. Named volume keys are unchanged.
+The shared image folder remains /web_images in n8n/PostgreSQL/Ollama and /work
+in the utility container. Restrict mounts further if those services do not need them.
 
 ```bash
-# Pull latest images
-docker compose pull
-
-# Rebuild and restart
-docker compose up -d --build
+docker compose exec ollama ollama pull llama3.2
+docker compose exec ollama ollama list
+docker compose exec imagemagick magick input.jpg -resize 800x600 output.webp
 ```
 
-### Database Backup
+WebUI uses ENABLE_WEB_SEARCH/WEB_SEARCH_* and SEARXNG_QUERY_URL. Existing WebUI
+persistent settings may override them: verify Admin Settings → Web Search.
+This is a single-process n8n stack, not queue mode; Redis presence alone does not
+activate n8n queue execution.
+
+## Optional MCP integration
+
+See [workflows/MCP_SETUP_GUIDE.md](workflows/MCP_SETUP_GUIDE.md). MCP services
+are excluded from ordinary `up -d` through a profile. Clients create one
+temporary stdio process per connection with Compose run, no TTY and no restart
+loop. PostgreSQL restricted mode is not a substitute for a least-privilege role.
+An n8n API key can authorize workflow mutation; approve tool use accordingly.
+
+## Validation and troubleshooting
 
 ```bash
-# Backup PostgreSQL
-docker exec postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB > backup.sql
-
-# Restore PostgreSQL
-cat backup.sql | docker exec -i postgres psql -U $POSTGRES_USER -d $POSTGRES_DB
-```
-
-### Image Processing
-
-```bash
-# Use ImageMagick
-docker exec imagemagick magick input.jpg -resize 800x600 output.jpg
-```
-
-## 🧪 Testing
-
-### Test n8n Workflow
-
-1. Go to http://localhost:5678
-2. Create a new workflow
-3. Add a "Manual Trigger" node
-4. Add an "HTTP Request" node
-5. Configure and execute
-
-### Test MCP Servers (Claude Code)
-
-```
-# In Claude Code
-Search for HTTP Request nodes in n8n
-
-# Or
-Navigate to example.com and take a screenshot
-
-# Or
-Show me the schema of my database
-```
-
-## 🔒 Security Considerations
-
-1. **Change Default Credentials**: Update all passwords in `.env`
-2. **API Keys**: Never commit `.env` or credential files to Git
-3. **Network Isolation**: Services communicate via Docker network
-4. **MCP Access**: PostgreSQL MCP is in read-only mode by default
-5. **Firewall**: Consider restricting external access to ports
-
-## 🐛 Troubleshooting
-
-### Service Won't Start
-
-```bash
-# Check logs
-docker compose logs [service_name]
-
-# Check service health
+python scripts/validate_stack.py  # requires PyYAML
+bash -n setup-mcp-workflows.sh
+docker compose --env-file .env.example --profile mcp config --quiet
 docker compose ps
-
-# Restart service
-docker compose restart [service_name]
+docker compose logs --tail=100 n8n postgres searxng
 ```
 
-### Database Connection Issues
+CI validates configuration, builds the n8n image and smoke-tests version/WebP.
+These checks do not prove your persisted workflow/database migrations or full
+service integration. No production-ready claim follows from a successful build.
 
-```bash
-# Check PostgreSQL is healthy
-docker compose ps postgres
+For import memory issues, start with bounded batches and monitor actual usage.
+NODE_OPTIONS caps the Node heap, not total container/stack memory. Four GB for
+n8n plus Ollama, WebUI and databases needs additional host headroom.
 
-# Verify credentials in .env
-cat .env | grep POSTGRES
-
-# Test connection
-docker exec -it postgres psql -U $POSTGRES_USER -d $POSTGRES_DB
-```
-
-### MCP Servers Not Connecting
-
-1. Verify services are running: `docker compose ps`
-2. Check n8n API key is set in `.env`
-3. Restart MCP containers: `docker compose restart n8n-docs-mcp playwright-mcp postgres-mcp`
-4. Verify Claude Code configuration in `~/.claude.json`
-
-### Out of Memory
-
-Increase Docker memory allocation or reduce `NODE_OPTIONS` in `.env`:
-
-```env
-NODE_OPTIONS=--max-old-space-size=2048
-```
-
-## 📁 Project Structure
-
-```
-jeffvato-ultimate-n8n-stack/
-├── docker-compose.yml          # Main Docker Compose configuration
-├── n8n.Dockerfile             # Custom n8n image with ImageMagick
-├── .env.example               # Environment variables template
-├── .gitignore                 # Git ignore rules
-├── README.md                  # This file
-├── CLAUDE.md                  # Claude Code instructions
-└── workflows/                 # n8n workflow templates
-    ├── MCP_SETUP_GUIDE.md
-    ├── claude-mcp-webhook.json
-    ├── claude-mcp-http.json
-    └── mcp-credentials.example.json
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-MIT License - feel free to use this stack for personal or commercial projects.
-
-## 🙏 Credits
-
-Created by **Jeffvato**
-
-Built with:
-- [n8n](https://n8n.io/) - Workflow automation
-- [PostgreSQL](https://www.postgresql.org/) - Database
-- [Redis Stack](https://redis.io/docs/stack/) - In-memory data store
-- [Ollama](https://ollama.ai/) - Local LLM inference
-- [Qdrant](https://qdrant.tech/) - Vector database
-- [Playwright](https://playwright.dev/) - Browser automation
-- [SearXNG](https://github.com/searxng/searxng) - Metasearch engine
-- [Open WebUI](https://github.com/open-webui/open-webui) - LLM interface
-
-MCP Server implementations:
-- [n8n-mcp](https://github.com/czlonkowski/n8n-mcp) by czlonkowski
-- [playwright-mcp](https://github.com/microsoft/playwright-mcp) by Microsoft
-- [postgres-mcp](https://github.com/crystaldba/postgres-mcp) by crystaldba
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/your-username/jeffvato-ultimate-n8n-stack/issues)
-- **n8n Community**: https://community.n8n.io/
-- **Claude Code Docs**: https://code.claude.com/docs
-
----
-
-**⭐ If you find this stack helpful, please star the repository!**
+Support: [repository issues](https://github.com/jeffvato/jeffvato-ultimate-n8n-stack/issues),
+[n8n docs](https://docs.n8n.io/), [SearXNG docs](https://docs.searxng.org/),
+[Open WebUI docs](https://docs.openwebui.com/).

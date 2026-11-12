@@ -1,5 +1,9 @@
 # Environment variables (contains sensitive data)
 .env
+.env.*
+!.env.example
+backups/
+*.dump
 
 # n8n data directory
 n8n-data/

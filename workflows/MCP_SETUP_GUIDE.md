@@ -1,175 +1,67 @@
-# Claude Code MCP Server Setup Guide for n8n
+# MCP setup (reviewed 2026-11-12)
 
-This guide will help you set up the MCP (Model Context Protocol) servers in n8n so Claude Code can connect successfully.
-
-## Prerequisites
-
-- n8n running and accessible at http://localhost:5678
-- Docker services healthy (postgres, redis, n8n)
-- Two workflow templates created: `claude-mcp-webhook.json` and `claude-mcp-http.json`
-
-## Step 1: Create Bearer Token Credentials in n8n
-
-Before importing workflows, you need to create the authentication credentials.
-
-### For Workflow #1 (claude-mcp-webhook.json):
-
-1. Go to http://localhost:5678
-2. Click **Settings** (gear icon) → **Credentials**
-3. Click **Add Credential**
-4. Search for "Header Auth" and select **Header Auth**
-5. Configure:
-   - **Credential Name**: `MCP Bearer Token`
-   - **Name**: `Authorization`
-   - **Value**: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmOTg0MjZlMi1hZDBhLTRhYTAtYTNhZC0yMGY0MzU1NGFiMDIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY2MzY3MTY5LCJleHAiOjE3Njg4ODg4MDB9.SK-niq-X2L7KlmNRM7ChHzX_et6nvYuHx-oOXGoo8V`
-6. Click **Save**
-
-### For Workflow #2 (claude-mcp-http.json):
-
-1. Click **Add Credential** again
-2. Select **Header Auth**
-3. Configure:
-   - **Credential Name**: `MCP HTTP Bearer Token`
-   - **Name**: `Authorization`
-   - **Value**: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmOTg0MjZlMi1hZDBhLTRhYTAtYTNhZC0yMGY0MzU1NGFiMDIiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6ImEwYmQ5YWFhLTJmZjktNDQyOS05NTI5LWM3NWU5Y2Q0ZWI0MCIsImlhdCI6MTc2NjcwNDk4NH0.UojV-QMSfthVacAVUgZuRKcdAslDPEmOPUnPtEgLVgk`
-4. Click **Save**
-
-## Step 2: Import the Workflows
-
-### Import Workflow #1 (Webhook-based MCP):
-
-1. In n8n, click **Workflows** in the left sidebar
-2. Click **Import from File** (or the **+** button → **Import from File**)
-3. Select `~/n8n/workflows/claude-mcp-webhook.json`
-4. The workflow will open in the editor
-5. Click on the **Webhook** node
-6. Under **Credentials**, select `MCP Bearer Token` from the dropdown
-7. Click **Save** (top right)
-
-### Import Workflow #2 (MCP HTTP Server):
-
-1. Click **Workflows** again
-2. Click **Import from File**
-3. Select `~/n8n/workflows/claude-mcp-http.json`
-4. Click on the **MCP HTTP Webhook** node
-5. Under **Credentials**, select `MCP HTTP Bearer Token` from the dropdown
-6. Click **Save**
-
-## Step 3: Activate the Workflows
-
-For **each workflow**:
-
-1. Open the workflow
-2. Toggle the **Active** switch in the top right (should turn green/blue)
-3. Verify the webhook URLs are registered:
-   - Workflow #1: `http://localhost:5678/webhook-test/2a801a68-3d60-479a-ba95-831efcf52af2`
-   - Workflow #2: `http://localhost:5678/webhook/mcp-server/http`
-
-## Step 4: Test the MCP Connections
-
-### Test from command line:
+Servers are optional and start per client connection. Start the base stack first.
+Run commands from the existing repository directory:
 
 ```bash
-# Test MCP Webhook
-curl -X POST http://localhost:5678/webhook-test/2a801a68-3d60-479a-ba95-831efcf52af2 \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmOTg0MjZlMi1hZDBhLTRhYTAtYTNhZC0yMGY0MzU1NGFiMDIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY2MzY3MTY5LCJleHAiOjE3Njg4ODg4MDB9.SK-niq-X2L7KlmNRM7ChHzX_et6nvYuHx-oOXGoo8V" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
-
-# Test MCP HTTP Server
-curl -X POST http://localhost:5678/webhook/mcp-server/http \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmOTg0MjZlMi1hZDBhLTRhYTAtYTNhZC0yMGY0MzU1NGFiMDIiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6ImEwYmQ5YWFhLTJmZjktNDQyOS05NTI5LWM3NWU5Y2Q0ZWI0MCIsImlhdCI6MTc2NjcwNDk4NH0.UojV-QMSfthVacAVUgZuRKcdAslDPEmOPUnPtEgLVgk" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+docker compose --profile mcp pull n8n-docs-mcp playwright-mcp postgres-mcp
+docker compose run --rm --no-deps -T n8n-docs-mcp
 ```
 
-Expected response should be a JSON-RPC 2.0 formatted response.
+Use the MCP client's documented configuration location; merge this example rather
+than overwriting the client's configuration. Replace the directory with your
+absolute checkout path:
 
-## Step 5: Restart Claude Code
-
-Once the workflows are active:
-
-1. Exit Claude Code (if running)
-2. Start a new Claude Code session: `claude`
-3. Check MCP server status: `claude mcp list`
-4. Both servers should now show as connected
-
-## Customizing the MCP Tools
-
-### Adding Your Own Tools
-
-Edit the workflow's **Code** node to add custom tools:
-
-1. Open the workflow
-2. Click on the **MCP Request Handler** or **MCP HTTP Handler** node
-3. Find the `tools/list` case
-4. Add your tool definitions following the MCP protocol schema
-5. Add corresponding logic in the `tools/call` case
-6. Save and the changes will be live immediately
-
-### Example Custom Tool:
-
-```javascript
+```json
 {
-  name: 'get_n8n_executions',
-  description: 'Get recent workflow executions from n8n',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      workflow_id: {
-        type: 'string',
-        description: 'The workflow ID to query'
-      },
-      limit: {
-        type: 'number',
-        description: 'Number of executions to return'
-      }
+  "mcpServers": {
+    "n8n-docs": {
+      "command": "docker",
+      "args": ["compose", "--project-directory", "/absolute/path/to/stack", "run", "--rm", "--no-deps", "-T", "n8n-docs-mcp"]
     },
-    required: ['workflow_id']
+    "playwright": {
+      "command": "docker",
+      "args": ["compose", "--project-directory", "/absolute/path/to/stack", "run", "--rm", "--no-deps", "-T", "playwright-mcp"]
+    },
+    "postgres": {
+      "command": "docker",
+      "args": ["compose", "--project-directory", "/absolute/path/to/stack", "run", "--rm", "--no-deps", "-T", "postgres-mcp"]
+    }
   }
 }
 ```
 
-## Troubleshooting
+The client must use the same Docker context, checkout, .env and Compose project
+identity as the stack. If you use `-p`, include the same project selection above.
+`--no-deps` intentionally avoids starting/recreating dependencies.
 
-### "unknown webhook" errors:
-- Ensure workflows are **Active** (green/blue toggle)
-- Check webhook URLs match exactly
-- Verify credentials are correctly assigned
+## Credentials and privileges
 
-### "Database is not ready" errors:
-- These should be resolved with the updated docker-compose.yml
-- Check `docker compose ps` - n8n should show as "healthy"
+- Documentation tools work without N8N_API_KEY. Workflow-management tools require
+  a current key from n8n Settings → n8n API (labels may vary). Keep it only in .env.
+  New stdio connections read the updated value; restarting old containers is not enough.
+- n8n keys can permit workflow writes/execution. Review tool calls before use.
+- PostgreSQL MCP uses restricted mode, but currently receives POSTGRES_USER.
+  This does not replace a dedicated least-privilege role. Do not give it to
+  untrusted clients or treat restricted mode as a security isolation boundary.
+- The MCP DATABASE_URI requires URI-percent-encoding for reserved characters in
+  database passwords. Configure an encoded URI override for MCP if needed; do not
+  change an existing database password just to match this example.
+- Playwright is browser automation, not an isolation boundary. Do not expose
+  sensitive internal services to untrusted browsing.
 
-### Authentication errors:
-- Verify Bearer tokens match in both n8n credentials and ~/.claude.json
-- Check token expiration dates in the JWT
+## Legacy files
 
-### Connection timeouts:
-- Ensure n8n is fully started (check logs: `docker compose logs n8n`)
-- Verify healthcheck is passing: `docker compose ps n8n`
+`claude-mcp-http.json` and `claude-mcp-webhook.json` are old JSON-RPC webhook
+demonstrations with placeholder tools, not complete MCP transport/session handling.
+They are not required by these servers. Do not activate them as working MCP
+integration. Inspect them in a disposable instance only; create fresh header-auth
+credentials in the UI. Never reuse a public API token from Git history.
 
-## What These Workflows Do
+The setup script now prints a notice only. It does not query the database, import
+credentials, activate workflows or make network calls. Revoke any token previously
+copied from it; removal does not erase public Git history.
 
-### Workflow #1 (claude-mcp-webhook.json):
-- Provides a basic MCP tool interface via webhook
-- Handles MCP protocol messages (initialize, tools/list, tools/call)
-- Example tool included for testing
-
-### Workflow #2 (claude-mcp-http.json):
-- Full MCP HTTP server implementation
-- Includes example tools for n8n workflow management
-- Supports resources and prompts (extendable)
-
-## Next Steps
-
-1. Customize the tools to your needs
-2. Add n8n API calls to actually interact with workflows
-3. Implement resource and prompt providers
-4. Add error handling and logging
-
-## Resources
-
-- MCP Protocol Specification: https://spec.modelcontextprotocol.io/
-- n8n Documentation: https://docs.n8n.io/
-- Claude Code MCP Docs: https://code.claude.com/docs/en/mcp-servers
+Upstream: [n8n MCP](https://github.com/czlonkowski/n8n-mcp),
+[Playwright MCP](https://github.com/microsoft/playwright-mcp),
+[Postgres MCP](https://github.com/crystaldba/postgres-mcp).

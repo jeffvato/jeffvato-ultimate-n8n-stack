@@ -2,7 +2,7 @@ ARG N8N_VERSION=2.47.5
 # n8n's hardened Alpine runtime no longer includes apk. Bring its matching
 # package manager back only for the build, rather than assuming it exists.
 FROM alpine:3.24 AS package-manager
-FROM docker.n8n.io/n8nio/n8n:${N8N_VERSION}
+FROM n8nio/n8n:${N8N_VERSION}
 
 COPY --from=package-manager /sbin/apk /sbin/apk
 COPY --from=package-manager /lib/apk /lib/apk

@@ -5,6 +5,11 @@ import re
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+license_text = (ROOT / "LICENSE").read_text()
+assert license_text.startswith("MIT License\n")
+assert "Copyright (c) 2026 Jeff Brown" in license_text
+assert "THE SOFTWARE IS PROVIDED" in license_text
+assert "COMMERCIAL_USE.md" in (ROOT / "README.md").read_text()
 compose_text = (ROOT / "docker-compose.yml").read_text()
 compose = yaml.safe_load(compose_text)
 services = compose["services"]

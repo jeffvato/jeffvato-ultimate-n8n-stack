@@ -5,6 +5,30 @@ Reviewed against upstream releases on **2026-11-12**. This repository is a
 configuration template, not a claim of production readiness or a completed upgrade
 of your running machine.
 
+## License and commercial hosting
+
+The original configuration, scripts and documentation in this repository are
+licensed under [MIT](LICENSE). They may be modified, redistributed and sold,
+provided the MIT copyright and permission notice is retained. This grant does
+not relicense third-party applications, container images, dependencies or models.
+
+The author is sharing this configuration freely for community use and exposure,
+not selling or operating a hosted n8n service. MIT permits recipients to use the
+original material commercially, but does not guarantee prominent public credit,
+a backlink, payment or endorsement. A voluntary repository link is appreciated.
+Recipients operating a hosted/resold service remain responsible for upstream rights.
+
+**Selling access to a hosted n8n service is not authorized by this repository's
+MIT license.** n8n's current guidance requires a separate commercial license for
+hosting n8n as a service, white-labeling, or allowing customers to build/configure
+workflows, including through an API, MCP or AI agent. Some operator-managed
+workflow services have different treatment; obtain written confirmation from n8n
+for your exact offering before selling it.
+
+See [commercial handoff requirements](COMMERCIAL_USE.md) for upstream license
+links and deployment gates. No claim of commercial licensing clearance,
+multi-tenant isolation or production-service readiness is made here.
+
 ## Revision baseline
 
 | Service | Image/revision | Upgrade policy |
@@ -66,9 +90,8 @@ to be the latest Redis product; RedisGraph is not included.
   credential import or database modification is performed by the script now.
 - Legacy webhook workflows are demonstrations with placeholder tools, not
   complete MCP servers. See [MCP guide](workflows/MCP_SETUP_GUIDE.md).
-- The previous MIT badge pointed at a nonexistent LICENSE. No repository license
-  is asserted here; upstream software retains its own licenses. Choose a license
-  explicitly before distributing your own repository content under one.
+- The repository now has an actual MIT LICENSE for its original material.
+  Third-party licenses remain separate; see COMMERCIAL_USE.md before resale.
 
 ## Fresh setup
 
